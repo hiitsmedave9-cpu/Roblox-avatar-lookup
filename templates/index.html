@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Roblox Creations — Galaxy Viewer</title>
+  <style>
+    :root{
+      --accent:#7c5cff;
+      --accent-2:#39d0ff;
+      --bg1:#0b0f1a;
+      --bg2:#07111a;
+      --card-bg: rgba(255,255,255,0.04);
+      --muted:#bfc6d6;
+    }
+    html,body{height:100%;margin:0;padding:0;font-family:Inter, "Segoe UI", Roboto, Arial, sans-serif;background:radial-gradient(ellipse at 30% 10%, #0b1220 0%, #05060a 50%, #030305 100%); color:#eaf0ff;}
+    #bgCanvas{position:fixed; inset:0; z-index:0; display:block;}
+    .wrap{position:relative; z-index:2; max-width:1200px; margin:28px auto; padding:32px; display:grid; grid-template-columns: 1fr 320px; gap:24px; align-items:start;}
+    .panel{background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:14px; padding:20px; box-shadow: 0 8px 30px rgba(0,0,0,0.6); border:1px solid rgba(124,92,255,0.08);}
+    .main { padding:6px; }
+    h1{margin:4px 0 6px; font-weight:700; letter-spacing:-0.6px;}
+    .subtitle { color:var(--muted); margin-top:0; font-size:14px;}
+    form { margin-top:18px; display:flex; gap:10px; align-items:center; }
+    input[type="text"]{flex:1; min-width:0; padding:12px 14px; border-radius:10px; border:none; background:rgba(255,255,255,0.03); color:inherit; outline:none; font-size:15px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.02); }
+    button.search{padding:12px 16px; border-radius:10px; border:none; background:linear-gradient(180deg,var(--accent), #5a46ff); color:white; cursor:pointer; font-weight:600; box-shadow:0 6px 20px rgba(92,66,255,0.12);}
+    .note { margin-top:12px; color:var(--muted); font-size:13px;}
+    .side-note { font-weight:700; color:#ffd7d7; background: rgba(0,0,0,0.18); padding:12px; border-radius:10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.02); }
+    .grid { margin-top:20px; display:grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap:18px; }
+    .card { background:var(--card-bg); border-radius:12px; padding:12px; display:flex; flex-direction:column; align-items:center; border:1px solid rgba(57,208,255,0.04); box-shadow: 0 8px 30px rgba(46,38,74,0.25); transition: transform .18s ease, box-shadow .18s ease; }
+    .card:hover { transform: translateY(-6px); box-shadow: 0 16px 40px rgba(88,66,255,0.12); }
+    .thumb { width:180px; height:180px; border-radius:10px; overflow:hidden; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); }
+    .thumb img { display:block; max-width:100%; max-height:100%; }
+    .noimg { color: #9aa8b8; font-size:13px; text-align:center; padding:8px; }
+    .title { margin-top:12px; font-weight:700; font-size:15px; color:#f0f6ff; text-align:center; }
+    .meta { margin-top:6px; font-size:13px; color:var(--muted); text-align:center; }
+    .state-pill { display:inline-block; margin-top:8px; padding:6px 10px; border-radius:999px; font-size:12px; color:#0b1220; background: linear-gradient(180deg,#ffd98a,#ffbd6b); font-weight:700; }
+    .muted-small { color:var(--muted); font-size:13px; margin-top:6px; }
+    .message { padding:10px 12px; border-radius:10px; margin-top:10px; font-weight:600; color:#ffd7d7; background: rgba(255,120,120,0.06); border:1px solid rgba(255,120,120,0.04); }
+    @media (max-width:980px){
+      .wrap{grid-template-columns: 1fr; padding:20px;}
+      .side { order:2; }
+      .main { order:1; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="bgCanvas"></canvas>
+
+  <div class="wrap">
+    <!-- Left: main content -->
+    <div class="panel main">
+      <h1> Roblox Avatar Viewer</h1>
+      <p class="subtitle">Search a username and view their created characters & saved outfits (thumbnails show state).</p>
+
+      <form method="POST">
+        <input type="text" name="username" placeholder="Enter Roblox username (exact)" autocomplete="off" required />
+        <button class="search" type="submit">Search</button>
+      </form>
+
+      <div class="note">Tip: Characters with thumbnail state <strong>Pending</strong> or <strong>Blocked</strong> may not show an image.</div>
+
+      {% if message %}
+        <div class="message">{{ message }}</div>
+      {% endif %}
+
+      {% if outfits and outfits|length > 0 %}
+        <h2 style="margin-top:18px; color:#dfe8ff;">Showing creations for <span style="color:var(--accent);">{{ username }}</span></h2>
+        <div class="grid">
+          {% for o in outfits %}
+            <div class="card" title="Outfit ID: {{ o.id }}">
+              <div class="thumb">
+                {% if o.img %}
+                  <img src="{{ o.img }}" alt="{{ o.name }}">
+                {% else %}
+                  <div class="noimg">
+                    <div style="font-weight:700;">No image</div>
+                    <div style="font-size:12px; color:#9fb0c8;">{{ o.state }}</div>
+                  </div>
+                {% endif %}
+              </div>
+              <div class="title">{{ o.name }}</div>
+              <div class="meta">
+                {% if o.state == 'Completed' %}
+                  <span class="muted-small">Thumbnail ready</span>
+                {% else %}
+                  <span class="state-pill">{{ o.state }}</span>
+                {% endif %}
+                <div class="muted-small">ID: {{ o.id }}</div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% elif username %}
+        <div style="margin-top:18px; color:var(--muted);">No creations found for <strong>{{ username }}</strong>.</div>
+      {% endif %}
+    </div>
+
+    <!-- Right: side note -->
+    <div class="panel side">
+      <div style="display:flex; gap:12px; align-items:center;">
+        <div style="width:64px; height:64px; border-radius:12px; background:linear-gradient(135deg,var(--accent),var(--accent-2)); display:flex; align-items:center; justify-content:center; font-size:28px; box-shadow:0 10px 30px rgba(92,66,255,0.18);">👤</div>
+        <div>
+          <div style="font-weight:700; font-size:16px;">Quick reminder</div>
+          <div style="color:var(--muted); font-size:13px;">Make sure to type in the user exactly</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('bgCanvas');
+    const ctx = canvas.getContext('2d');
+    let w = canvas.width = window.innerWidth;
+    let h = canvas.height = window.innerHeight;
+    window.addEventListener('resize', () => { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; initStars(); });
+
+    const layers = [
+      {count: 160, speed: 0.2, size: [0.6, 1.4], stars: []},
+      {count: 90, speed: 0.6, size: [0.8, 2.2], stars: []},
+      {count: 40, speed: 1.2, size: [1.4, 3.0], stars: []}
+    ];
+
+    function rand(min,max){ return Math.random()*(max-min)+min; }
+
+    function initStars(){
+      for (const layer of layers) {
+        layer.stars.length = 0;
+        for (let i=0;i<layer.count;i++){
+          layer.stars.push({
+            x: Math.random()*w,
+            y: Math.random()*h,
+            r: rand(layer.size[0], layer.size[1]),
+            s: layer.speed * rand(0.6,1.4),
+            twinkle: Math.random()*2*Math.PI
+          });
+        }
+      }
+    }
+
+    function draw(){
+      const g = ctx.createLinearGradient(0, 0, w, h);
+      g.addColorStop(0, "#06111a");
+      g.addColorStop(0.4, "#071927");
+      g.addColorStop(1, "#02020a");
+      ctx.fillStyle = g;
+      ctx.fillRect(0,0,w,h);
+
+      for (const layer of layers) {
+        for (const s of layer.stars){
+          const alpha = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin((Date.now()/1000) * (s.s*2) + s.twinkle));
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = "white";
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+          ctx.fill();
+          s.y += s.s;
+          if (s.y > h+10) s.y = -10;
+          s.x += Math.sin((s.y + s.x)/200) * 0.3;
+          if (s.x > w+10) s.x = -10;
+        }
+      }
+      ctx.globalAlpha = 1;
+      requestAnimationFrame(draw);
+    }
+
+    initStars();
+    draw();
+  </script>
+</body>
+</html>
