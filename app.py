@@ -362,6 +362,73 @@ def add_to_search_history(username, user_info, outfit_count):
         'outfit_count': outfit_count
     })
 
+
+def get_avatar_thumbnail(user_id, size="420x420"):
+    """Fetch a user's current avatar thumbnail from Roblox thumbnails API."""
+    if not user_id:
+        return None
+
+    url = f"https://thumbnails.roblox.com/v1/users/avatar?userIds={user_id}&size={size}&format=Png&isCircular=false"
+    resp = make_request_with_retry(url, headers=HEADERS)
+    if not resp:
+        return None
+    try:
+        data = resp.json().get('data', [])
+        if data and isinstance(data, list):
+            return data[0].get('imageUrl')
+    except Exception:
+        pass
+    return None
+
+
+def fetch_user_badges(user_id, limit=12):
+    """Fetch recent badges for a user. Returns a list of dicts with id and name when available."""
+    if not user_id:
+        return []
+    url = f"https://badges.roblox.com/v1/users/{user_id}/badges?limit={limit}"
+    resp = make_request_with_retry(url, headers=HEADERS)
+    badges = []
+    if not resp:
+        return badges
+    try:
+        data = resp.json().get('data', [])
+        badge_ids = []
+        for item in data:
+            # API variants may return different fields; be defensive
+            bid = item.get('id') or item.get('badgeId') or item.get('badgeTemplateId')
+            name = item.get('name') or item.get('title') or item.get('displayName') or ''
+            desc = item.get('description') or ''
+            # optional fields that may point to a place or universe
+            place = item.get('placeId') or item.get('gameId') or item.get('rootPlaceId') or item.get('universeId')
+            badges.append({
+                'id': bid,
+                'name': name,
+                'description': desc,
+                'place': place,
+                'image': None
+            })
+            if bid:
+                badge_ids.append(str(bid))
+
+        # Fetch badge thumbnails in bulk (if any badge ids)
+        if badge_ids:
+            try:
+                ids_csv = ",".join(badge_ids)
+                thumb_url = f"https://thumbnails.roblox.com/v1/badges?badgeIds={ids_csv}&size=150x150"
+                t_resp = make_request_with_retry(thumb_url, headers=HEADERS)
+                if t_resp:
+                    tdata = t_resp.json().get('data', [])
+                    thumb_map = {str(item.get('targetId')): item.get('imageUrl') for item in tdata}
+                    for b in badges:
+                        bid = str(b.get('id')) if b.get('id') is not None else None
+                        if bid and bid in thumb_map:
+                            b['image'] = thumb_map[bid]
+            except Exception:
+                pass
+    except Exception as e:
+        logger.debug(f"Failed to parse badges: {e}")
+    return badges
+
 # ---- Flask Routes ----
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -485,10 +552,16 @@ def index():
         })
     
     # Cache the results
+    # Fetch current avatar thumbnail and recent badges to enrich profile
+    avatar_url = get_avatar_thumbnail(user_info.get("id"), size="420x420")
+    badges = fetch_user_badges(user_info.get("id"), limit=12)
+
     result_data = {
         'username': user_info["username"],
         'user_info': user_info,
-        'display_outfits': display_outfits
+        'display_outfits': display_outfits,
+        'avatar_url': avatar_url,
+        'badges': badges
     }
     set_cached_data(username, result_data)
     add_to_search_history(username, user_info, len(display_outfits))
@@ -499,6 +572,8 @@ def index():
                          username=user_info["username"],
                          user_info=user_info,
                          outfits=display_outfits,
+                         avatar_url=avatar_url,
+                         badges=badges,
                          message=success_message,
                          message_type="success",
                          recent_searches=session.get('recent_searches', []))
@@ -515,6 +590,44 @@ def api_stats():
         "uptime": "Unknown",  # Would need startup time tracking
         "rate_limits_active": len(rate_limit_cache)
     })
+
+
+@app.route('/api/badge/<int:badge_id>')
+def api_badge_detail(badge_id):
+    """Return badge metadata and associated game/universe info when possible."""
+    try:
+        # Fetch badge details
+        url = f"https://badges.roblox.com/v1/badges/{badge_id}"
+        resp = make_request_with_retry(url, headers=HEADERS)
+        badge = {}
+        if resp:
+            badge = resp.json()
+
+        # Attempt to find an associated place/universe id from badge or via search
+        place_id = badge.get('placeId') or badge.get('rootPlaceId') or badge.get('gameId') or badge.get('universeId')
+        game = None
+        if place_id:
+            try:
+                # Get basic game info from the universe/places API
+                game_url = f"https://games.roblox.com/v1/games/multiget-place-details?placeIds={place_id}"
+                gresp = make_request_with_retry(game_url, headers=HEADERS)
+                if gresp:
+                    gdata = gresp.json().get('data', [])
+                    if gdata:
+                        gd = gdata[0]
+                        game = {
+                            'id': gd.get('placeId') or place_id,
+                            'name': gd.get('name') or gd.get('universeName') or '',
+                            'playing': gd.get('playing') or gd.get('visitors') or 0,
+                            'url': f"https://www.roblox.com/games/{gd.get('universeId') or gd.get('placeId')}"
+                        }
+            except Exception:
+                game = None
+
+        return jsonify({ 'badge': badge or {}, 'game': game })
+    except Exception as e:
+        logger.error(f"Error in /api/badge/{badge_id}: {e}")
+        return jsonify({'error': 'failed'}), 500
 
 
 @app.route('/log_click', methods=['POST'])

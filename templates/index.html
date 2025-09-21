@@ -53,51 +53,6 @@
       display: block;
     }
 
-    /* Decorative star-pattern layer using the boykisser cat image */
-    .cat-star-bg {
-      position: fixed;
-      inset: 0;
-      z-index: 0;
-      pointer-events: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: visible;
-      opacity: 0.18; /* make constellation more visible */
-    }
-
-    .cat-star {
-      position: relative;
-      width: 900px;
-      height: 900px;
-      transform: translateZ(0);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .cat-star img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      filter: drop-shadow(0 6px 18px rgba(0,0,0,0.6)) saturate(0.85) contrast(1.05);
-      opacity: 0.9;
-      display: block;
-    }
-
-    /* gentle pulse on the constellation to make it feel alive */
-    .cat-star img { animation: constellPulse 6s ease-in-out infinite; }
-    @keyframes constellPulse { 0%,100%{opacity:0.16}50%{opacity:0.22} }
-
-    /* Make it responsive and less intrusive on small screens */
-    @media (max-width: 900px) {
-      .cat-star { width: 600px; height: 600px; }
-    }
-
-    @media (max-width: 480px) {
-      .cat-star { display: none; }
-    }
-
     .container {
       position: relative;
       z-index: 2;
@@ -240,6 +195,69 @@
       border: 1px solid var(--border);
       box-shadow: var(--shadow);
     }
+
+    /* Rich profile enhancements */
+    .profile-grid {
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .profile-avatar {
+      width: 160px;
+      height: 160px;
+      border-radius: 12px;
+      overflow: hidden;
+      background: linear-gradient(135deg, rgba(124,92,255,0.12), rgba(57,208,255,0.04));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .profile-avatar img { width: 100%; height: 100%; object-fit: cover; display:block; }
+
+    .profile-meta h2 { margin: 0 0 6px; font-size: 1.6rem; }
+    .profile-meta p.meta { margin: 6px 0; color: var(--muted); }
+
+    .badges-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .badge-item {
+      background: rgba(255,255,255,0.02);
+      border-radius: 8px;
+      padding: 8px;
+      height: 64px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size: 12px;
+      color: var(--text-secondary);
+      border: 1px solid rgba(255,255,255,0.02);
+    }
+
+    .badge-item img { max-width: 48px; max-height: 48px; display:block; }
+
+    /* Simple modal for badge/game viewer */
+    .modal-backdrop { position: fixed; inset:0; background: rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index: 9999; }
+    .modal { background: linear-gradient(180deg, #07111a, #0a1220); border-radius: 12px; padding: 20px; width: 560px; max-width: 92%; color: var(--text-primary); box-shadow: var(--shadow); border: 1px solid var(--border); }
+    .modal h3 { margin: 0 0 8px; }
+    .modal .game-meta { display:flex; gap:12px; align-items:center; }
+    .modal .game-meta .cover { width:120px; height:68px; background: rgba(255,255,255,0.03); border-radius:6px; display:inline-block; }
+    .modal .game-stats { margin-left:8px; }
+    .modal .actions { margin-top:12px; display:flex; gap:8px; }
+    .btn-ghost { background: transparent; color: var(--accent-2); border:1px solid rgba(124,92,255,0.08); padding:8px 12px; border-radius:8px; cursor:pointer; }
+
+  /* Tooltip for badges */
+  .badge-item { position: relative; cursor: pointer; }
+  .badge-item .tooltip { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%) translateY(-10px); background: rgba(10,16,26,0.95); color: var(--text-primary); padding:6px 8px; border-radius:6px; font-size:12px; white-space:nowrap; opacity:0; pointer-events:none; transition: opacity 0.18s ease, transform 0.18s ease; border: 1px solid rgba(255,255,255,0.04); }
+  .badge-item:hover .tooltip { opacity: 1; transform: translateX(-50%) translateY(-14px); }
+  .badge-item .tooltip .from-game { display:block; font-size:11px; color:var(--muted); margin-top:4px; }
 
     .user-header {
       display: flex;
@@ -677,13 +695,7 @@
 <body>
   <canvas id="bgCanvas" aria-hidden="true"></canvas>
 
-  <!-- Decorative starburst of the boykisser cat (subtle background) -->
-  <div class="cat-star-bg" aria-hidden="true">
-    <div class="cat-star">
-      <!-- Single composed SVG showing the constellation -->
-      <img src="/static/boykisser-cat.svg" alt="" style="width:100%;height:100%;object-fit:contain;" />
-    </div>
-  </div>
+  <!-- boykisser SVG background removed -->
 
   <div class="container">
     <header class="header">
@@ -740,24 +752,51 @@
 
     {% if user_info %}
     <section class="user-profile">
-      <div class="user-header">
-        <div class="user-avatar">
-          {% if user_info.username %}{{ user_info.username[0].upper() }}{% else %}?{% endif %}
+      <div class="profile-grid">
+        <div class="profile-avatar">
+          {% if avatar_url %}
+            <img src="{{ avatar_url }}" alt="{{ user_info.username }} avatar" />
+          {% else %}
+            <div class="user-avatar">
+              {% if user_info.username %}{{ user_info.username[0].upper() }}{% else %}?{% endif %}
+            </div>
+          {% endif %}
         </div>
-        <div class="user-info">
+
+        <div class="profile-meta">
           <h2>
             {% if user_info.displayName %}{{ user_info.displayName }}{% else %}{{ user_info.username }}{% endif %}
             {% if user_info.hasVerifiedBadge %}
             <span style="color: var(--success); font-size: 0.8em;">✓</span>
             {% endif %}
           </h2>
-          <div class="user-meta">
-            <span>@{{ user_info.username }}</span>
-            <span>ID: {{ user_info.id }}</span>
-            {% if user_info.created %}
-            <span>Joined: {{ user_info.created[:10] }}</span>
-            {% endif %}
-          </div>
+          <p class="meta">@{{ user_info.username }} • ID: {{ user_info.id }}{% if user_info.created %} • Joined {{ user_info.created[:10] }}{% endif %}</p>
+
+          {% if user_info.description %}
+            <p class="meta">{{ user_info.description }}</p>
+          {% endif %}
+
+          {% if badges %}
+            <div style="margin-top:12px;font-size:13px;color:var(--muted);">Recent Badges</div>
+            <div class="badges-grid">
+              {% for b in badges %}
+                <div class="badge-item" data-badge-id="{{ b.id }}">
+                  {% if b.image %}
+                    <img src="{{ b.image }}" alt="{{ b.name }}" />
+                  {% else %}
+                    <div style="font-size:12px;color:var(--text-secondary);">{{ b.name if b.name else 'Badge' }}</div>
+                  {% endif %}
+                  <div class="tooltip">
+                    {{ b.name if b.name else 'Badge' }}
+                    {% if b.place %}
+                      <span class="from-game">From game #{{ b.place }}</span>
+                    {% endif %}
+                    <span class="from-game">Click to view game info</span>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
         </div>
       </div>
       
@@ -855,6 +894,25 @@
         <small style="opacity: 0.7;">This site isn't affiliated with Roblox Corp. All data comes from Roblox's public APIs.</small>
       </p>
     </footer>
+  </div>
+
+  <!-- Badge/Game modal -->
+  <div id="modalBackdrop" class="modal-backdrop" role="dialog" aria-hidden="true">
+    <div class="modal" role="document" id="badgeModal">
+      <h3 id="modalTitle">Badge</h3>
+      <div class="game-meta">
+        <div class="cover" id="modalCover"></div>
+        <div class="game-stats">
+          <div id="modalGameName" style="font-weight:600"></div>
+          <div id="modalGamePlayers" style="color:var(--muted);font-size:13px"></div>
+        </div>
+      </div>
+      <div id="modalDesc" style="margin-top:10px;color:var(--text-secondary)"></div>
+      <div class="actions">
+        <a id="modalPlayLink" class="btn-ghost" target="_blank" rel="noopener">Open Game</a>
+        <button class="btn-ghost" id="modalClose">Close</button>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -1025,6 +1083,60 @@
       // Only attach in non-production debugless mode? Always attach small logger by default
       document.addEventListener('click', sendClick, {passive: true});
     })();
+
+  // Badge modal logic
+  (function(){
+    function qs(sel){ return document.querySelector(sel); }
+    function qsa(sel){ return Array.from(document.querySelectorAll(sel)); }
+
+    const backdrop = qs('#modalBackdrop');
+    const modal = qs('#badgeModal');
+    const modalTitle = qs('#modalTitle');
+    const modalGameName = qs('#modalGameName');
+    const modalGamePlayers = qs('#modalGamePlayers');
+    const modalDesc = qs('#modalDesc');
+    const modalPlayLink = qs('#modalPlayLink');
+    const modalClose = qs('#modalClose');
+
+    function openModal(){ backdrop.style.display='flex'; backdrop.setAttribute('aria-hidden','false'); }
+    function closeModal(){ backdrop.style.display='none'; backdrop.setAttribute('aria-hidden','true'); }
+
+    modalClose.addEventListener('click', closeModal);
+    backdrop.addEventListener('click', function(e){ if(e.target===backdrop) closeModal(); });
+
+    // Attach click handlers to badge items (live)
+    document.addEventListener('click', function(e){
+      const target = e.target.closest('.badge-item');
+      if(!target) return;
+      const badgeId = target.getAttribute('data-badge-id');
+      if(!badgeId) return;
+      // fetch badge detail
+      fetch(`/api/badge/${badgeId}`).then(r=>r.json()).then(json=>{
+        const badge = json.badge || {};
+        const game = json.game || null;
+        modalTitle.textContent = badge.name || ('Badge ' + badgeId);
+        modalDesc.textContent = badge.description || '';
+        if(game){
+          modalGameName.textContent = game.name || 'Game';
+          modalGamePlayers.textContent = `Players: ${game.playing || 0}`;
+          modalPlayLink.href = game.url || '#';
+          modalPlayLink.style.display = '';
+        } else {
+          modalGameName.textContent = 'No associated game';
+          modalGamePlayers.textContent = '';
+          modalPlayLink.style.display = 'none';
+        }
+        openModal();
+      }).catch(()=>{
+        modalTitle.textContent = 'Badge';
+        modalDesc.textContent = 'Failed to load details.';
+        modalGameName.textContent = '';
+        modalGamePlayers.textContent = '';
+        modalPlayLink.style.display = 'none';
+        openModal();
+      });
+    });
+  })();
 
     function drawDeepSpaceBackground() {
       // Create deep space gradient
