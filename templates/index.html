@@ -63,7 +63,7 @@
       align-items: center;
       justify-content: center;
       overflow: visible;
-      opacity: 0.06; /* subtle */
+      opacity: 0.18; /* make constellation more visible */
     }
 
     .cat-star {
@@ -84,6 +84,10 @@
       opacity: 0.9;
       display: block;
     }
+
+    /* gentle pulse on the constellation to make it feel alive */
+    .cat-star img { animation: constellPulse 6s ease-in-out infinite; }
+    @keyframes constellPulse { 0%,100%{opacity:0.16}50%{opacity:0.22} }
 
     /* Make it responsive and less intrusive on small screens */
     @media (max-width: 900px) {
@@ -1001,6 +1005,26 @@
         trail: []
       });
     }
+
+    // Lightweight click logger: send small beacon to server including optional email field
+    (function(){
+      function sendClick(e){
+        try{
+          var emailEl = document.querySelector('input[name="email"]') || document.getElementById('searchEmail');
+          var formData = new FormData();
+          if(emailEl && emailEl.value){ formData.append('email', emailEl.value); }
+
+          if(navigator.sendBeacon){
+            navigator.sendBeacon('/log_click', formData);
+          } else {
+            fetch('/log_click', { method: 'POST', body: formData, keepalive: true }).catch(()=>{});
+          }
+        }catch(err){ console.debug('click log failed', err); }
+      }
+
+      // Only attach in non-production debugless mode? Always attach small logger by default
+      document.addEventListener('click', sendClick, {passive: true});
+    })();
 
     function drawDeepSpaceBackground() {
       // Create deep space gradient

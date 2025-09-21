@@ -516,6 +516,50 @@ def api_stats():
         "rate_limits_active": len(rate_limit_cache)
     })
 
+
+@app.route('/log_click', methods=['POST'])
+def log_click():
+    """Receive client-side click events for lightweight logging.
+
+    Accepts optional form field 'email' or JSON {email: ...} and logs a privacy-masked
+    client IP plus User-Agent. Returns 204 No Content on success.
+    """
+    try:
+        client_ip = get_client_ip() or 'unknown'
+        masked = mask_ip(client_ip)
+        ua = request.headers.get('User-Agent', 'unknown')
+
+        clicked_email = None
+        # form data or JSON
+        if request.form:
+            clicked_email = request.form.get('email') or request.form.get('gmail')
+        else:
+            try:
+                j = request.get_json(silent=True) or {}
+                clicked_email = j.get('email') or j.get('gmail')
+            except Exception:
+                clicked_email = None
+
+        log_msg = f"CLICK: ip={masked} ua={ua}"
+        if clicked_email:
+            log_msg += f" email={clicked_email}"
+        logger.info(log_msg)
+
+        # optional admin notify
+        try:
+            subject = "Site click logged"
+            body = f"Click event received.\nIP (masked): {masked}\nUA: {ua}\n"
+            if clicked_email:
+                body += f"Email: {clicked_email}\n"
+            notify_admin(subject, body)
+        except Exception:
+            pass
+
+        return ('', 204)
+    except Exception as e:
+        logger.error(f"Error in /log_click: {e}")
+        return ('', 500)
+
 @app.route("/clear_history")
 def clear_history():
     """Clear user's search history"""
