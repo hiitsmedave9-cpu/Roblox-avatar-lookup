@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="description" content="View Roblox user avatars, outfits, and creations with thumbnail previews. Fast and modern interface." />
+  <meta name="description" content="Check out Roblox user avatars and outfits. Simple viewer with thumbnail previews." />
   <meta name="keywords" content="Roblox, avatar, outfits, viewer, thumbnails, creations" />
-  <title>{% if username %}{{ username }}'s Creations{% else %}Roblox Avatar Viewer{% endif %} — Galaxy Explorer</title>
+  <title>{% if username %}{{ username }}'s Outfits{% else %}Roblox Outfit Explorer{% endif %}</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -39,10 +39,11 @@
       margin: 0;
       padding: 0;
       font-family: 'Inter', "Segoe UI", Roboto, Arial, sans-serif;
-      background: radial-gradient(ellipse at 30% 10%, #0b1220 0%, #05060a 50%, #030305 100%);
+      background: #000;
       color: var(--text-primary);
       line-height: 1.6;
       scroll-behavior: smooth;
+      overflow-x: hidden;
     }
 
     #bgCanvas {
@@ -366,6 +367,7 @@
       line-height: 1.3;
       display: -webkit-box;
       -webkit-line-clamp: 2;
+      line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
@@ -465,6 +467,32 @@
       border-top: 1px solid rgba(255,255,255,0.05);
       color: var(--muted);
       font-size: 14px;
+      position: relative;
+    }
+
+    .cute-character {
+      margin: 24px auto;
+      width: 120px;
+      height: 120px;
+      background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDEyMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik02MCA5NUMzNy41IDk1IDI1IDc1IDI1IDYwQzI1IDM1IDQwIDIwIDYwIDIwQzgwIDIwIDk1IDM1IDk1IDYwQzk1IDc1IDgyLjUgOTUgNjAgOTVaIiBmaWxsPSIjRjVGNUY1IiBzdHJva2U9IiMzMzMiIHN0cm9rZS13aWR0aD0iMiIvPgo8cGF0aCBkPSJNNDUgNDBDNDUgMzcuNSA0Ny41IDM1IDUwIDM1QzUyLjUgMzUgNTUgMzcuNSA1NSA0MEM1NSA0Mi41IDUyLjUgNDUgNTAgNDVDNDcuNSA0NSA0NSA0Mi41IDQ1IDQwWiIgZmlsbD0iIzMzMyIvPgo8cGF0aCBkPSJNNjUgNDBDNjUgMzcuNSA2Ny41IDM1IDcwIDM1QzcyLjUgMzUgNzUgMzcuNSA3NSA0MEM3NSA0Mi41IDcyLjUgNDUgNzAgNDVDNjcuNSA0NSA2NSA0Mi41IDY1IDQwWiIgZmlsbD0iIzMzMyIvPgo8cGF0aCBkPSJNNTUgNjBDNTcuNSA2NCA2Mi41IDY0IDY1IDYwIiBzdHJva2U9IiNGRjY2NjYiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIvPgo8cGF0aCBkPSJNMzAgMjVMMzUgMzUiIHN0cm9rZT0iIzMzMyIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxwYXRoIGQ9Ik05MCAyNUw4NSAzNSIgc3Ryb2tlPSIjMzMzIiBzdHJva2Utd2lkdGg9IjIiLz4KPGVSBGF0aCBkPSJNMzUgODBMMzUgOTUiIHN0cm9rZT0iIzMzMyIgc3Ryb2tlLXdpZHRoPSIzIi8+CjxwYXRoIGQ9Ik04NSA4MEw4NSA5NSIgc3Ryb2tlPSIjMzMzIiBzdHJva2Utd2lkdGg9IjMiLz4KPGVSBGF0aCBkPSJNNDUgOTBDNDcuNSA5MCA1MiA4OCA1NSA5MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMzMzIiBzdHJva2Utd2lkdGg9IjIiLz4KPGVSBGF0aCBkPSJNNjUgOTBDNjcuNSA5MCA3MiA4OCA3NSA5MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMzMzIiBzdHJva2Utd2lkdGg9IjIiLz4KPC9zdmc+') no-repeat center center;
+      background-size: contain;
+      animation: floatCharacter 3s ease-in-out infinite;
+      opacity: 0.8;
+      transition: opacity 0.3s ease;
+    }
+
+    .cute-character:hover {
+      opacity: 1;
+      animation-duration: 1.5s;
+    }
+
+    @keyframes floatCharacter {
+      0%, 100% {
+        transform: translateY(0px);
+      }
+      50% {
+        transform: translateY(-8px);
+      }
     }
 
     .footer-links {
@@ -606,8 +634,8 @@
 
   <div class="container">
     <header class="header">
-      <h1 class="main-title">🚀 Roblox Galaxy Explorer</h1>
-      <p class="subtitle">Discover and explore Roblox user creations, avatars, and outfits with beautiful thumbnail previews in a modern interface.</p>
+      <h1 class="main-title">🌌 Roblox Outfit Explorer</h1>
+      <p class="subtitle">Browse through any Roblox user's avatars and outfit creations. Just enter a username and explore their collection!</p>
     </header>
 
     <section class="search-section">
@@ -628,7 +656,7 @@
       </form>
       
       <p class="search-tip">
-        💡 Enter the <strong>exact username</strong>. Thumbnails may take time to load for some outfits.
+        💡 Type the username exactly as it appears on Roblox. Some outfit images might take a moment to load.
       </p>
 
       {% if recent_searches %}
@@ -708,7 +736,7 @@
     {% if outfits %}
     <section class="outfits-section">
       <h2 class="section-title">
-        🎨 {{ user_info.username }}'s Creations & Outfits
+        ✨ Outfits by {{ user_info.username }}
       </h2>
       
       <div class="outfits-grid">
@@ -756,31 +784,41 @@
     {% elif username %}
     <div style="text-align: center; margin-top: 48px; color: var(--muted);">
       <div style="font-size: 48px; margin-bottom: 16px;">🔍</div>
-      <h3>No outfits found</h3>
-      <p>User "{{ username }}" doesn't have any public outfits or creations.</p>
+      <h3>Nothing here yet</h3>
+      <p>Looks like "{{ username }}" doesn't have any public outfits to show.</p>
     </div>
     {% endif %}
 
     <footer class="footer">
+      <div class="cute-character" title="Cute galaxy explorer! ✨"></div>
       <div class="footer-links">
         <a href="/" class="footer-link">Home</a>
         <a href="/api/stats" class="footer-link">API Stats</a>
         <a href="https://github.com" class="footer-link" target="_blank">GitHub</a>
       </div>
       <p>
-        Built with ❤️ for the Roblox community. 
+        Made for the Roblox community with love! 
         <br>
-        <small style="opacity: 0.7;">Not affiliated with Roblox Corporation. Data sourced from public Roblox APIs.</small>
+        <small style="opacity: 0.7;">This site isn't affiliated with Roblox Corp. All data comes from Roblox's public APIs.</small>
       </p>
     </footer>
   </div>
 
   <script>
-    // Enhanced background animation
+    // Enhanced galaxy background with realistic moving stars
     const canvas = document.getElementById('bgCanvas');
     const ctx = canvas.getContext('2d');
     let w = canvas.width = window.innerWidth;
     let h = canvas.height = window.innerHeight;
+    
+    // Mouse tracking for parallax effect
+    let mouseX = w / 2;
+    let mouseY = h / 2;
+    
+    document.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
     
     window.addEventListener('resize', () => {
       w = canvas.width = window.innerWidth;
@@ -788,64 +826,211 @@
       initStars();
     });
 
-    const layers = [
-      { count: 200, speed: 0.15, size: [0.5, 1.2], color: 'rgba(255,255,255,0.4)', stars: [] },
-      { count: 120, speed: 0.4, size: [0.8, 2.0], color: 'rgba(124,92,255,0.3)', stars: [] },
-      { count: 60, speed: 0.8, size: [1.2, 2.8], color: 'rgba(57,208,255,0.2)', stars: [] },
-      { count: 30, speed: 1.5, size: [2.0, 4.0], color: 'rgba(255,255,255,0.1)', stars: [] }
+    // Multiple star layers with different properties
+    const starLayers = [
+      { 
+        count: 300, 
+        speed: 0.05, 
+        size: [0.3, 0.8], 
+        color: 'rgba(255,255,255,0.3)', 
+        parallax: 0.02,
+        twinkleSpeed: 0.5,
+        stars: [] 
+      },
+      { 
+        count: 200, 
+        speed: 0.1, 
+        size: [0.5, 1.2], 
+        color: 'rgba(200,220,255,0.5)', 
+        parallax: 0.05,
+        twinkleSpeed: 0.8,
+        stars: [] 
+      },
+      { 
+        count: 150, 
+        speed: 0.15, 
+        size: [0.8, 1.8], 
+        color: 'rgba(255,255,255,0.6)', 
+        parallax: 0.08,
+        twinkleSpeed: 1.2,
+        stars: [] 
+      },
+      { 
+        count: 100, 
+        speed: 0.25, 
+        size: [1.0, 2.5], 
+        color: 'rgba(180,200,255,0.4)', 
+        parallax: 0.12,
+        twinkleSpeed: 1.5,
+        stars: [] 
+      },
+      { 
+        count: 50, 
+        speed: 0.4, 
+        size: [1.5, 3.0], 
+        color: 'rgba(255,200,150,0.3)', 
+        parallax: 0.18,
+        twinkleSpeed: 2.0,
+        stars: [] 
+      },
+      { 
+        count: 25, 
+        speed: 0.6, 
+        size: [2.0, 4.0], 
+        color: 'rgba(255,255,255,0.2)', 
+        parallax: 0.25,
+        twinkleSpeed: 2.5,
+        stars: [] 
+      }
     ];
+
+    // Shooting stars
+    const shootingStars = [];
+    let lastShootingStar = 0;
 
     function rand(min, max) {
       return Math.random() * (max - min) + min;
     }
 
     function initStars() {
-      for (const layer of layers) {
+      for (const layer of starLayers) {
         layer.stars.length = 0;
         for (let i = 0; i < layer.count; i++) {
           layer.stars.push({
             x: Math.random() * w,
             y: Math.random() * h,
             r: rand(layer.size[0], layer.size[1]),
-            s: layer.speed * rand(0.7, 1.3),
+            baseSpeed: layer.speed * rand(0.5, 1.5),
+            angle: Math.random() * Math.PI * 2,
             twinkle: Math.random() * Math.PI * 2,
-            twinkleSpeed: rand(0.8, 2.2)
+            twinkleSpeed: layer.twinkleSpeed * rand(0.8, 1.2),
+            parallaxFactor: layer.parallax
           });
         }
       }
     }
 
-    function drawBackground() {
-      const gradient = ctx.createRadialGradient(w * 0.3, h * 0.2, 0, w * 0.5, h * 0.5, Math.max(w, h));
-      gradient.addColorStop(0, '#0b1220');
-      gradient.addColorStop(0.3, '#071927');
-      gradient.addColorStop(0.7, '#05060a');
-      gradient.addColorStop(1, '#02020a');
+    function createShootingStar() {
+      const side = Math.floor(Math.random() * 4);
+      let x, y, vx, vy;
+      
+      switch(side) {
+        case 0: // Top
+          x = Math.random() * w;
+          y = -10;
+          vx = rand(-2, 2);
+          vy = rand(2, 5);
+          break;
+        case 1: // Right  
+          x = w + 10;
+          y = Math.random() * h;
+          vx = rand(-5, -2);
+          vy = rand(-2, 2);
+          break;
+        case 2: // Bottom
+          x = Math.random() * w;
+          y = h + 10;
+          vx = rand(-2, 2);
+          vy = rand(-5, -2);
+          break;
+        case 3: // Left
+          x = -10;
+          y = Math.random() * h;
+          vx = rand(2, 5);
+          vy = rand(-2, 2);
+          break;
+      }
+
+      shootingStars.push({
+        x: x,
+        y: y,
+        vx: vx,
+        vy: vy,
+        life: 1.0,
+        decay: rand(0.01, 0.02),
+        size: rand(1, 3),
+        trail: []
+      });
+    }
+
+    function drawDeepSpaceBackground() {
+      // Create deep space gradient
+      const gradient = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, Math.max(w, h) * 0.8);
+      gradient.addColorStop(0, '#000511');
+      gradient.addColorStop(0.3, '#000208');
+      gradient.addColorStop(0.6, '#000105');
+      gradient.addColorStop(1, '#000000');
       
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, w, h);
+      
+      // Add subtle nebula effect
+      const nebulaGradient = ctx.createRadialGradient(
+        w * 0.2 + Math.sin(Date.now() / 10000) * 50, 
+        h * 0.3 + Math.cos(Date.now() / 8000) * 30, 
+        0,
+        w * 0.2, 
+        h * 0.3, 
+        w * 0.4
+      );
+      nebulaGradient.addColorStop(0, 'rgba(25, 0, 50, 0.03)');
+      nebulaGradient.addColorStop(0.5, 'rgba(10, 0, 30, 0.02)');
+      nebulaGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      
+      ctx.fillStyle = nebulaGradient;
+      ctx.fillRect(0, 0, w, h);
+      
+      // Another nebula on the other side
+      const nebula2 = ctx.createRadialGradient(
+        w * 0.8 + Math.cos(Date.now() / 12000) * 40, 
+        h * 0.7 + Math.sin(Date.now() / 9000) * 25, 
+        0,
+        w * 0.8, 
+        h * 0.7, 
+        w * 0.3
+      );
+      nebula2.addColorStop(0, 'rgba(0, 20, 40, 0.03)');
+      nebula2.addColorStop(0.5, 'rgba(0, 10, 25, 0.02)');
+      nebula2.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      
+      ctx.fillStyle = nebula2;
+      ctx.fillRect(0, 0, w, h);
     }
 
-    function draw() {
-      drawBackground();
-
+    function updateAndDrawStars() {
       const time = Date.now() / 1000;
+      const parallaxX = (mouseX - w/2) * 0.01;
+      const parallaxY = (mouseY - h/2) * 0.01;
 
-      for (const layer of layers) {
+      for (const layer of starLayers) {
         for (const star of layer.stars) {
+          // Twinkling effect
           const twinkle = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(time * star.twinkleSpeed + star.twinkle));
+          
+          // Parallax effect based on mouse position
+          const parallaxOffsetX = parallaxX * star.parallaxFactor;
+          const parallaxOffsetY = parallaxY * star.parallaxFactor;
           
           ctx.globalAlpha = twinkle;
           ctx.fillStyle = layer.color;
           ctx.beginPath();
-          ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
+          ctx.arc(
+            star.x + parallaxOffsetX, 
+            star.y + parallaxOffsetY, 
+            star.r, 
+            0, 
+            Math.PI * 2
+          );
           ctx.fill();
 
-          // Movement
-          star.y += star.s;
-          star.x += Math.sin((star.y + star.x) / 300) * 0.2;
-
-          // Wrap around
+          // Subtle movement
+          star.x += Math.sin(star.angle + time * 0.1) * star.baseSpeed;
+          star.y += Math.cos(star.angle + time * 0.1) * star.baseSpeed;
+          
+          // Gentle drift
+          star.y += star.baseSpeed * 0.5;
+          
+          // Wrap around screen
           if (star.y > h + 20) {
             star.y = -20;
             star.x = Math.random() * w;
@@ -854,9 +1039,74 @@
           if (star.x < -20) star.x = w + 20;
         }
       }
-
       ctx.globalAlpha = 1;
-      requestAnimationFrame(draw);
+    }
+
+    function updateAndDrawShootingStars() {
+      for (let i = shootingStars.length - 1; i >= 0; i--) {
+        const star = shootingStars[i];
+        
+        // Add current position to trail
+        star.trail.push({x: star.x, y: star.y, alpha: star.life});
+        
+        // Limit trail length
+        if (star.trail.length > 15) {
+          star.trail.shift();
+        }
+        
+        // Draw trail
+        for (let j = 0; j < star.trail.length; j++) {
+          const trailPoint = star.trail[j];
+          const trailAlpha = (j / star.trail.length) * trailPoint.alpha;
+          
+          ctx.globalAlpha = trailAlpha;
+          ctx.fillStyle = 'rgba(255, 255, 255, 1)';
+          ctx.beginPath();
+          ctx.arc(trailPoint.x, trailPoint.y, star.size * (j / star.trail.length), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        
+        // Draw main shooting star
+        ctx.globalAlpha = star.life;
+        ctx.fillStyle = 'rgba(255, 255, 255, 1)';
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Update position
+        star.x += star.vx;
+        star.y += star.vy;
+        star.life -= star.decay;
+        
+        // Remove if faded or off screen
+        if (star.life <= 0 || star.x < -50 || star.x > w + 50 || star.y < -50 || star.y > h + 50) {
+          shootingStars.splice(i, 1);
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function animate() {
+      // Clear canvas
+      ctx.clearRect(0, 0, w, h);
+      
+      // Draw background
+      drawDeepSpaceBackground();
+      
+      // Draw stars
+      updateAndDrawStars();
+      
+      // Draw shooting stars
+      updateAndDrawShootingStars();
+      
+      // Occasionally create shooting stars
+      const now = Date.now();
+      if (now - lastShootingStar > rand(3000, 8000)) {
+        createShootingStar();
+        lastShootingStar = now;
+      }
+      
+      requestAnimationFrame(animate);
     }
 
     // Form enhancement
@@ -898,4 +1148,22 @@
       }
     });
 
-    // Initialize and start animation
+    // Initialize and start
+    initStars();
+    animate();
+
+    // Performance optimization
+    let isTabVisible = true;
+    document.addEventListener('visibilitychange', function() {
+      isTabVisible = !document.hidden;
+    });
+
+    // Reduce animation when tab is not visible
+    function optimizedAnimate() {
+      if (isTabVisible) {
+        animate();
+      } else {
+        setTimeout(optimizedAnimate, 100);
+      }
+    }
+  </script>
