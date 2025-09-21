@@ -431,21 +431,42 @@ def fetch_user_badges(user_id, limit=12):
             if bid:
                 badge_ids.append(str(bid))
 
-        # Fetch badge thumbnails in bulk (if any badge ids)
+        # Fetch badge thumbnails in chunked bulk requests (if any badge ids)
         if badge_ids:
             try:
-                ids_csv = ",".join(badge_ids)
-                thumb_url = f"https://thumbnails.roblox.com/v1/badges?badgeIds={ids_csv}&size=150x150"
-                t_resp = make_request_with_retry(thumb_url, headers=HEADERS)
-                if t_resp:
-                    tdata = t_resp.json().get('data', [])
-                    thumb_map = {str(item.get('targetId')): item.get('imageUrl') for item in tdata}
-                    for b in badges:
-                        bid = str(b.get('id')) if b.get('id') is not None else None
-                        if bid and bid in thumb_map:
-                            b['image'] = thumb_map[bid]
+                def chunked(lst, n=10):
+                    for i in range(0, len(lst), n):
+                        yield lst[i:i+n]
+
+                thumb_map = {}
+                for chunk in chunked(badge_ids, 10):
+                    try:
+                        ids_csv = ",".join(chunk)
+                        thumb_url = f"https://thumbnails.roblox.com/v1/badges?badgeIds={ids_csv}&size=150x150"
+                        t_resp = make_request_with_retry(thumb_url, headers=HEADERS)
+                        if not t_resp:
+                            continue
+                        tdata = t_resp.json().get('data', [])
+                        for item in tdata:
+                            try:
+                                target = str(item.get('targetId'))
+                                img = item.get('imageUrl') or item.get('thumbnailUrl')
+                                if target and img:
+                                    thumb_map[target] = img
+                            except Exception:
+                                continue
+                        # be polite between chunked requests
+                        time.sleep(0.08)
+                    except Exception:
+                        # continue trying other chunks even if one fails
+                        continue
+
+                for b in badges:
+                    bid = str(b.get('id')) if b.get('id') is not None else None
+                    if bid and bid in thumb_map:
+                        b['image'] = thumb_map[bid]
             except Exception as e:
-                logger.debug(f"Failed to fetch badge thumbnails: {e}")
+                logger.debug(f"Failed to fetch badge thumbnails (chunked): {e}")
 
         # Try to populate a human-friendly game name for badges that reference a place
         try:
@@ -722,6 +743,7 @@ def api_badge_detail(badge_id):
         game = None
 
         # If we have a place id, prefer fetching place details
+        universe_for_thumb = None
         if place_id:
             try:
                 game_url = f"https://games.roblox.com/v1/games/multiget-place-details?placeIds={place_id}"
@@ -730,6 +752,7 @@ def api_badge_detail(badge_id):
                     gdata = gresp.json().get('data', [])
                     if gdata:
                         gd = gdata[0]
+                        universe_for_thumb = gd.get('universeId') or gd.get('rootUniverseId')
                         game = {
                             'id': gd.get('placeId') or place_id,
                             'name': gd.get('name') or gd.get('universeName') or '',
@@ -746,9 +769,7 @@ def api_badge_detail(badge_id):
                 uni_url = f"https://games.roblox.com/v1/games?universeIds={universe_id}"
                 uresp = make_request_with_retry(uni_url, headers=HEADERS)
                 if uresp:
-                    # Response shapes vary; try common patterns
                     udata = uresp.json()
-                    # If there's a 'data' array
                     if isinstance(udata, dict) and udata.get('data'):
                         entry = udata['data'][0]
                     elif isinstance(udata, list) and len(udata) > 0:
@@ -760,6 +781,7 @@ def api_badge_detail(badge_id):
                         name = entry.get('name') or entry.get('universeName') or ''
                         playing = entry.get('playing') or entry.get('visitors') or 0
                         gid = entry.get('universeId') or universe_id
+                        universe_for_thumb = gid
                         game = {
                             'id': gid,
                             'name': name,
@@ -768,6 +790,31 @@ def api_badge_detail(badge_id):
                         }
             except Exception:
                 game = None
+
+        # If we have a universe id available, try to fetch a thumbnail image for it
+        try:
+            if not universe_for_thumb and game and game.get('id') and str(game.get('id')).isdigit():
+                # sometimes game.id is actually a place id; try to get universe via multiget-place-details
+                maybe_place = game.get('id')
+                resp_try = make_request_with_retry(f"https://games.roblox.com/v1/games/multiget-place-details?placeIds={maybe_place}", headers=HEADERS)
+                if resp_try:
+                    rr = resp_try.json().get('data', [])
+                    if rr and rr[0].get('universeId'):
+                        universe_for_thumb = rr[0].get('universeId')
+
+            if universe_for_thumb:
+                thumb_url = f"https://thumbnails.roblox.com/v1/games?universeIds={universe_for_thumb}&size=768x432"
+                tresp = make_request_with_retry(thumb_url, headers=HEADERS)
+                if tresp:
+                    tdata = tresp.json().get('data', [])
+                    if tdata:
+                        img = tdata[0].get('imageUrl') or tdata[0].get('thumbnailUrl')
+                        if img:
+                            if not game:
+                                game = {}
+                            game['image'] = img
+        except Exception:
+            pass
 
         return jsonify({ 'badge': badge or {}, 'game': game })
     except Exception as e:
