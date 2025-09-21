@@ -8,6 +8,8 @@ from functools import wraps
 import hashlib
 from requests.exceptions import RequestException, Timeout, ConnectionError
 import logging
+import smtplib
+from email.message import EmailMessage
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -43,6 +45,64 @@ rate_limit_cache = {}
 def get_client_ip():
     """Get client IP address for rate limiting"""
     return request.environ.get('HTTP_X_FORWARDED_FOR', request.remote_addr)
+
+
+def mask_ip(ip: str) -> str:
+    """Mask an IP address for privacy-preserving logs.
+
+    For IPv4, zero the last octet (1.2.3.4 -> 1.2.3.x).
+    For IPv6, zero the last 80 bits and show prefix (abcd:: -> abcd::/48 masked).
+    """
+    if not ip:
+        return "unknown"
+    try:
+        # IPv4
+        parts = ip.split('.')
+        if len(parts) == 4:
+            return '.'.join(parts[:3]) + '.x'
+        # IPv6 (very naive)
+        if ':' in ip:
+            prefix = ip.split(':')[0]
+            return prefix + '::/48'
+    except Exception:
+        pass
+    return 'masked'
+
+
+def notify_admin(subject: str, body: str) -> None:
+    """Send an optional admin notification via SMTP if configured.
+
+    Controlled by environment variables. This function is opt-in only and will
+    silently return if notifications are not enabled or misconfigured.
+    """
+    enabled = os.environ.get('ENABLE_EMAIL_NOTIFS', 'false').lower() == 'true'
+    admin = os.environ.get('ADMIN_EMAIL')
+    if not enabled or not admin:
+        return
+
+    smtp_server = os.environ.get('SMTP_SERVER')
+    smtp_port = int(os.environ.get('SMTP_PORT', '587'))
+    smtp_user = os.environ.get('SMTP_USER')
+    smtp_pass = os.environ.get('SMTP_PASS')
+
+    if not smtp_server or not smtp_user or not smtp_pass:
+        logger.warning('Email notifications enabled but SMTP settings are incomplete')
+        return
+
+    try:
+        msg = EmailMessage()
+        msg['Subject'] = subject
+        msg['From'] = smtp_user
+        msg['To'] = admin
+        msg.set_content(body)
+
+        with smtplib.SMTP(smtp_server, smtp_port, timeout=10) as s:
+            s.starttls()
+            s.login(smtp_user, smtp_pass)
+            s.send_message(msg)
+            logger.info('Admin notification sent')
+    except Exception as e:
+        logger.error(f'Failed to send admin notification: {e}')
 
 def rate_limit_check():
     """Check if client has exceeded search rate limit"""
@@ -353,6 +413,28 @@ def index():
                              message_type="error",
                              username=username,
                              recent_searches=session.get('recent_searches', []))
+
+    # Privacy-preserving logging and optional admin notification
+    try:
+        client_ip = get_client_ip() or 'unknown'
+        masked = mask_ip(client_ip)
+        # Some templates may include an email field (e.g., 'email' or 'gmail')
+        clicked_email = request.form.get('email') or request.form.get('gmail') or None
+        ua = request.headers.get('User-Agent', 'unknown')
+
+        log_msg = f"Search performed: username={username} by ip={masked} user_agent={ua}"
+        if clicked_email:
+            log_msg += f" clicked_email={clicked_email}"
+        logger.info(log_msg)
+
+        # Optional admin email (controlled by env vars)
+        subject = f"Avatar search: {username}"
+        body = f"A user searched for '{username}'.\n\nIP (masked): {masked}\nUser-Agent: {ua}\n"
+        if clicked_email:
+            body += f"Clicked email: {clicked_email}\n"
+        notify_admin(subject, body)
+    except Exception as e:
+        logger.error(f"Error during logging/notification: {e}")
     
     # Fetch outfits
     raw_outfits = fetch_all_outfits_enhanced(user_info["id"])
