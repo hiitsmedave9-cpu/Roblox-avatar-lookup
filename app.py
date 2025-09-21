@@ -176,6 +176,10 @@ def make_request_with_retry(url, method='GET', **kwargs):
                 wait_time = min(2 ** attempt, 10)
                 logger.warning(f"Rate limited, waiting {wait_time}s before retry {attempt + 1}")
                 time.sleep(wait_time)
+            elif response.status_code in (400, 404):
+                # Resource not found or bad request — don't retry, return response for callers to inspect
+                logger.debug(f"Non-retriable HTTP {response.status_code}: {url}")
+                return response
             else:
                 logger.warning(f"HTTP {response.status_code} on attempt {attempt + 1}: {url}")
                 
@@ -445,6 +449,34 @@ def fetch_user_badges(user_id, limit=12):
                         thumb_url = f"https://thumbnails.roblox.com/v1/badges?badgeIds={ids_csv}&size=150x150"
                         t_resp = make_request_with_retry(thumb_url, headers=HEADERS)
                         if not t_resp:
+                            # Try per-id fallback for this chunk
+                            for single in chunk:
+                                try:
+                                    single_url = f"https://thumbnails.roblox.com/v1/badges?badgeIds={single}&size=150x150"
+                                    sresp = make_request_with_retry(single_url, headers=HEADERS)
+                                    if not sresp:
+                                        # final fallback: fetch badge detail and try to extract image
+                                        try:
+                                            det = make_request_with_retry(f"https://badges.roblox.com/v1/badges/{single}", headers=HEADERS)
+                                            if det:
+                                                dd = det.json()
+                                                img = dd.get('imageUrl') or dd.get('iconImageUrl') or dd.get('thumbnailUrl') or None
+                                                if img:
+                                                    thumb_map[str(single)] = img
+                                        except Exception:
+                                            continue
+                                        continue
+                                    sdata = sresp.json().get('data', [])
+                                    for item in sdata:
+                                        try:
+                                            target = str(item.get('targetId'))
+                                            img = item.get('imageUrl') or item.get('thumbnailUrl')
+                                            if target and img:
+                                                thumb_map[target] = img
+                                        except Exception:
+                                            continue
+                                except Exception:
+                                    continue
                             continue
                         tdata = t_resp.json().get('data', [])
                         for item in tdata:
