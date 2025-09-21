@@ -40,6 +40,8 @@ MAX_SEARCHES_PER_HOUR = 30
 user_cache = {}
 search_history = {}
 rate_limit_cache = {}
+# Simple in-memory cache for place/game lookups to reduce API calls
+game_cache = {}
 
 # ---- Rate Limiting & Caching ----
 def get_client_ip():
@@ -381,15 +383,33 @@ def get_avatar_thumbnail(user_id, size="420x420"):
     return None
 
 
+def _coerce_badge_limit(limit):
+    """Roblox badges endpoint accepts only specific limits (10,25,50,100).
+    Coerce requested limit to the nearest allowed value (prefer smaller)."""
+    allowed = [10, 25, 50, 100]
+    try:
+        l = int(limit)
+    except Exception:
+        return 10
+    for a in allowed:
+        if l <= a:
+            return a
+    return allowed[-1]
+
+
 def fetch_user_badges(user_id, limit=12):
     """Fetch recent badges for a user. Returns a list of dicts with id and name when available."""
     if not user_id:
         return []
-    url = f"https://badges.roblox.com/v1/users/{user_id}/badges?limit={limit}"
+
+    # Ensure limit is one of the accepted values (10,25,50,100)
+    safe_limit = _coerce_badge_limit(limit)
+    url = f"https://badges.roblox.com/v1/users/{user_id}/badges?limit={safe_limit}"
     resp = make_request_with_retry(url, headers=HEADERS)
     badges = []
     if not resp:
         return badges
+
     try:
         data = resp.json().get('data', [])
         badge_ids = []
@@ -405,7 +425,8 @@ def fetch_user_badges(user_id, limit=12):
                 'name': name,
                 'description': desc,
                 'place': place,
-                'image': None
+                'image': None,
+                'game_name': None
             })
             if bid:
                 badge_ids.append(str(bid))
@@ -423,10 +444,94 @@ def fetch_user_badges(user_id, limit=12):
                         bid = str(b.get('id')) if b.get('id') is not None else None
                         if bid and bid in thumb_map:
                             b['image'] = thumb_map[bid]
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to fetch badge thumbnails: {e}")
+
+        # Try to populate a human-friendly game name for badges that reference a place
+        try:
+            place_ids = {str(b['place']) for b in badges if b.get('place')}
+            # Remove empty/None values
+            place_ids = {pid for pid in place_ids if pid and pid.isdigit()}
+            # If some badges don't include a place or image, try fetching badge details to discover them
+            missing_place_badges = [b for b in badges if (not b.get('place') or not b.get('image')) and b.get('id')]
+            # Limit extra lookups to avoid too many requests
+            for b in missing_place_badges[:20]:
+                try:
+                    bid = b.get('id')
+                    detail_url = f"https://badges.roblox.com/v1/badges/{bid}"
+                    dresp = make_request_with_retry(detail_url, headers=HEADERS)
+                    if not dresp:
+                        continue
+                    d = dresp.json()
+                    # Check several possible fields for a place/universe
+                    place = d.get('placeId') or d.get('rootPlaceId') or d.get('gameId') or d.get('universeId') or d.get('badgeAwardingUniverseId')
+                    if place:
+                        b['place'] = place
+                        place_ids.add(str(place))
+
+                    # Try find an image URL in badge detail variants
+                    img = d.get('imageUrl') or d.get('iconImageUrl') or d.get('thumbnailUrl') or d.get('image')
+                    # Some endpoints may include nested fields
+                    if not img and isinstance(d.get('images'), list) and len(d.get('images'))>0:
+                        try:
+                            img = d.get('images')[0].get('url')
+                        except Exception:
+                            img = None
+
+                    if img:
+                        b['image'] = img
+                except Exception:
+                    # best-effort; continue to other badges
+                    continue
+
+            missing = [pid for pid in place_ids if pid not in game_cache]
+            if missing:
+                # Batch query place details via games.multiget-place-details
+                ids_csv = ",".join(missing)
+                place_url = f"https://games.roblox.com/v1/games/multiget-place-details?placeIds={ids_csv}"
+                presp = make_request_with_retry(place_url, headers=HEADERS)
+                if presp:
+                    pdata = presp.json().get('data', [])
+                    for entry in pdata:
+                        pid = str(entry.get('placeId') or entry.get('placeId'))
+                        # try several possible image fields
+                        image = entry.get('imageUrl') or entry.get('iconImageUrl') or entry.get('coverImage') or entry.get('image')
+                        game_cache[pid] = {
+                            'name': entry.get('name') or entry.get('universeName') or '',
+                            'playing': entry.get('playing') or entry.get('visitors') or 0,
+                            'universeId': entry.get('universeId') or None,
+                            'placeId': pid,
+                            'image': image
+                        }
+            # Attach game_name when available
+            for b in badges:
+                pid = b.get('place')
+                if pid:
+                    pid_s = str(pid)
+                    if pid_s in game_cache:
+                        b['game_name'] = game_cache[pid_s].get('name')
+                        b['place_id'] = game_cache[pid_s].get('placeId')
+                        b['place_players'] = game_cache[pid_s].get('playing')
+                        b['place_image'] = game_cache[pid_s].get('image')
+        
+        except Exception as e:
+            logger.debug(f"Failed to lookup game names for badges: {e}")
+
+        # Attach a tooltip_text fallback: prefer game_name, then description snippet, then badge name
+        for b in badges:
+            if b.get('game_name'):
+                b['tooltip_text'] = b.get('game_name')
+            else:
+                desc = (b.get('description') or '').strip()
+                if desc:
+                    # Shorten to 60 chars
+                    b['tooltip_text'] = (desc[:57] + '...') if len(desc) > 60 else desc
+                else:
+                    b['tooltip_text'] = b.get('name') or 'Badge'
+
     except Exception as e:
         logger.debug(f"Failed to parse badges: {e}")
+
     return badges
 
 # ---- Flask Routes ----
@@ -506,18 +611,26 @@ def index():
     # Fetch outfits
     raw_outfits = fetch_all_outfits_enhanced(user_info["id"])
     if not raw_outfits:
+        # Even if the user has no outfits, fetch avatar thumbnail and recent badges
+        avatar_url = get_avatar_thumbnail(user_info.get("id"), size="420x420")
+        badges = fetch_user_badges(user_info.get("id"), limit=12)
+
         result_data = {
             'username': user_info["username"],
             'user_info': user_info,
-            'display_outfits': []
+            'display_outfits': [],
+            'avatar_url': avatar_url,
+            'badges': badges
         }
         set_cached_data(username, result_data)
         add_to_search_history(username, user_info, 0)
-        
+
         return render_template("index.html",
                              username=user_info["username"],
                              user_info=user_info,
                              outfits=[],
+                             avatar_url=avatar_url,
+                             badges=badges,
                              message=f"ℹ️ User '{user_info['username']}' has no public outfits or creations.",
                              message_type="info",
                              recent_searches=session.get('recent_searches', []))
@@ -603,12 +716,14 @@ def api_badge_detail(badge_id):
         if resp:
             badge = resp.json()
 
-        # Attempt to find an associated place/universe id from badge or via search
-        place_id = badge.get('placeId') or badge.get('rootPlaceId') or badge.get('gameId') or badge.get('universeId')
+        # Attempt to find an associated place/universe id from badge and fetch best-effort game info
+        place_id = badge.get('placeId') or badge.get('rootPlaceId') or badge.get('gameId')
+        universe_id = badge.get('universeId') or badge.get('badgeAwardingUniverseId')
         game = None
+
+        # If we have a place id, prefer fetching place details
         if place_id:
             try:
-                # Get basic game info from the universe/places API
                 game_url = f"https://games.roblox.com/v1/games/multiget-place-details?placeIds={place_id}"
                 gresp = make_request_with_retry(game_url, headers=HEADERS)
                 if gresp:
@@ -620,6 +735,36 @@ def api_badge_detail(badge_id):
                             'name': gd.get('name') or gd.get('universeName') or '',
                             'playing': gd.get('playing') or gd.get('visitors') or 0,
                             'url': f"https://www.roblox.com/games/{gd.get('universeId') or gd.get('placeId')}"
+                        }
+            except Exception:
+                game = None
+
+        # If no place info but we have a universe id, try to fetch universe-level game info
+        if not game and universe_id:
+            try:
+                # Try games endpoint for universe details (best-effort)
+                uni_url = f"https://games.roblox.com/v1/games?universeIds={universe_id}"
+                uresp = make_request_with_retry(uni_url, headers=HEADERS)
+                if uresp:
+                    # Response shapes vary; try common patterns
+                    udata = uresp.json()
+                    # If there's a 'data' array
+                    if isinstance(udata, dict) and udata.get('data'):
+                        entry = udata['data'][0]
+                    elif isinstance(udata, list) and len(udata) > 0:
+                        entry = udata[0]
+                    else:
+                        entry = udata
+
+                    if entry:
+                        name = entry.get('name') or entry.get('universeName') or ''
+                        playing = entry.get('playing') or entry.get('visitors') or 0
+                        gid = entry.get('universeId') or universe_id
+                        game = {
+                            'id': gid,
+                            'name': name,
+                            'playing': playing,
+                            'url': f"https://www.roblox.com/games/{gid}"
                         }
             except Exception:
                 game = None

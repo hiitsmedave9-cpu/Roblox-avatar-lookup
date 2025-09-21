@@ -780,15 +780,23 @@
             <div style="margin-top:12px;font-size:13px;color:var(--muted);">Recent Badges</div>
             <div class="badges-grid">
               {% for b in badges %}
-                <div class="badge-item" data-badge-id="{{ b.id }}">
+                <div class="badge-item" data-badge-id="{{ b.id }}"
+                     data-place-id="{{ b.place_id if b.place_id is defined else (b.place if b.place else '') }}"
+                     data-place-players="{{ b.place_players if b.place_players is defined else '' }}"
+                     data-place-image="{{ b.place_image if b.place_image is defined else '' }}"
+                     data-tooltip="{{ b.tooltip_text|e }}">
                   {% if b.image %}
                     <img src="{{ b.image }}" alt="{{ b.name }}" />
                   {% else %}
                     <div style="font-size:12px;color:var(--text-secondary);">{{ b.name if b.name else 'Badge' }}</div>
                   {% endif %}
                   <div class="tooltip">
-                    {{ b.name if b.name else 'Badge' }}
-                    {% if b.place %}
+                    {{ b.tooltip_text if b.tooltip_text else (b.name if b.name else 'Badge') }}
+                    {% if b.place_players %}
+                      <span class="from-game">Players: {{ b.place_players }}</span>
+                    {% elif b.game_name %}
+                      <span class="from-game">From: {{ b.game_name }}</span>
+                    {% elif b.place %}
                       <span class="from-game">From game #{{ b.place }}</span>
                     {% endif %}
                     <span class="from-game">Click to view game info</span>
@@ -901,10 +909,11 @@
     <div class="modal" role="document" id="badgeModal">
       <h3 id="modalTitle">Badge</h3>
       <div class="game-meta">
-        <div class="cover" id="modalCover"></div>
+        <div class="cover" id="modalCover"><img id="modalCoverImg" src="" alt="cover" style="width:100%;height:100%;object-fit:cover;border-radius:6px;display:none"/></div>
         <div class="game-stats">
           <div id="modalGameName" style="font-weight:600"></div>
           <div id="modalGamePlayers" style="color:var(--muted);font-size:13px"></div>
+          <div id="modalPlaceId" style="color:var(--muted);font-size:12px;margin-top:6px"></div>
         </div>
       </div>
       <div id="modalDesc" style="margin-top:10px;color:var(--text-secondary)"></div>
@@ -1110,31 +1119,43 @@
       if(!target) return;
       const badgeId = target.getAttribute('data-badge-id');
       if(!badgeId) return;
-      // fetch badge detail
+
+      // Prefill modal from data- attributes when available
+      const preTitle = target.getAttribute('title') || target.querySelector('img')?.alt || ('Badge ' + badgeId);
+      const preTooltip = target.dataset.tooltip || '';
+      const prePlace = target.dataset.placeId || null;
+      const prePlayers = target.dataset.placePlayers || null;
+      const preImage = target.dataset.placeImage || null;
+
+      modalTitle.textContent = preTitle;
+      modalDesc.textContent = preTooltip;
+      modalGameName.textContent = preTitle;
+      modalGamePlayers.textContent = prePlayers ? `Players: ${prePlayers}` : '';
+      modalPlaceId.textContent = prePlace ? `Place: ${prePlace}` : '';
+      const coverImg = document.getElementById('modalCoverImg');
+      coverImg.style.display = 'none';
+      coverImg.src = '';
+      if(preImage){ coverImg.src = preImage; coverImg.style.display = ''; }
+      modalPlayLink.style.display = prePlace ? '' : 'none';
+      modalPlayLink.href = prePlace ? `https://www.roblox.com/games/${prePlace}` : '#';
+
+      // Still attempt to fetch more authoritative details from the server
       fetch(`/api/badge/${badgeId}`).then(r=>r.json()).then(json=>{
         const badge = json.badge || {};
         const game = json.game || null;
-        modalTitle.textContent = badge.name || ('Badge ' + badgeId);
-        modalDesc.textContent = badge.description || '';
+        modalTitle.textContent = badge.name || modalTitle.textContent;
+        modalDesc.textContent = badge.description || modalDesc.textContent;
         if(game){
-          modalGameName.textContent = game.name || 'Game';
+          modalGameName.textContent = game.name || modalGameName.textContent;
           modalGamePlayers.textContent = `Players: ${game.playing || 0}`;
-          modalPlayLink.href = game.url || '#';
+          modalPlaceId.textContent = `Place: ${game.id || ''}`;
+          modalPlayLink.href = game.url || modalPlayLink.href;
           modalPlayLink.style.display = '';
-        } else {
-          modalGameName.textContent = 'No associated game';
-          modalGamePlayers.textContent = '';
-          modalPlayLink.style.display = 'none';
+          if(game.image){ coverImg.src = game.image; coverImg.style.display = ''; }
         }
-        openModal();
-      }).catch(()=>{
-        modalTitle.textContent = 'Badge';
-        modalDesc.textContent = 'Failed to load details.';
-        modalGameName.textContent = '';
-        modalGamePlayers.textContent = '';
-        modalPlayLink.style.display = 'none';
-        openModal();
-      });
+      }).catch(()=>{/* ignore, we already prefixed */});
+
+      openModal();
     });
   })();
 
